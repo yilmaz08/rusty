@@ -4,38 +4,39 @@
 
 # Main Route
 [http.routes."main"]
-ports = [ "65080" ]
+ports = [ "2" ]
 hosts = [ "example.com", "127.0.0.1", "localhost" ]
-force_host = false
-force_ssl = false
+# priority = 3
+# force_host = false
+# force_ssl = false
 
-[http.routes."main".paths."/"]
+[http.routes."main".paths."^/"]
 service = "html"
-[http.routes."main".paths."/static"]
+[http.routes."main".paths."^/static"]
 service = "static"
-[http.routes."main".paths."/admin"]
-service = "django"
-[http.routes."main".paths."/link"]
+[http.routes."main".paths."^/(admin|link)"]
 service = "django"
 
 # Link Shortener route
 [http.routes."go"]
-ports = [ "65080" ]
-hosts = [ "go.example.com" ]
-force_ssl = false
-force_host = false
+ports = [ "2" ]
+hosts = [ "example.com" ]
+# priority = 10
+# force_ssl = false
+# force_host = false
 
-[http.routes."go".paths."/"]
+[http.routes."go".paths."^/"]
 service = "go"
 
 # Forbidden Route
 [http.routes."403"]
-ports = [ "65080" ]
+ports = [ "2" ]
 hosts = [ "forbidden.example.com" ]
-force_ssl = false
-force_host = false
+# priority = 2
+# force_ssl = false
+# force_host = false
 
-[http.routes."403".paths."/"]
+[http.routes."403".paths."^/"]
 service = "403"
 
 ################
@@ -63,7 +64,7 @@ action = """
 [http.services."go"]
 module = "web-server"
 action = """
-    return = "301 https://ayilmaz.xyz/link/open/"
+    return = "301 https://example.com/link/open/"
 """
 
 [http.services."403"]

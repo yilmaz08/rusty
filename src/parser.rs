@@ -2,36 +2,48 @@ use serde::Deserialize;
 use std::fs;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    http: Http,
+    #[allow(dead_code)]
+    pub http: Http,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Http {
-    routes: HashMap<String, Route>,
-    services: HashMap<String, Service>
+    #[allow(dead_code)]
+    pub routes: HashMap<String, Route>,
+    #[allow(dead_code)]
+    pub services: HashMap<String, Service>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Service {
-    module: String,
-    action: String
+    #[allow(dead_code)]
+    pub module: String,
+    #[allow(dead_code)]
+    pub action: String
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Route {
-    ports: Vec<String>,
-    hosts: Vec<String>,
-    force_host: bool,
-    force_ssl: bool,
-
-    paths: HashMap<String, Path>
+    #[allow(dead_code)]
+    pub ports: Vec<String>,
+    #[allow(dead_code)]
+    pub hosts: Vec<String>,
+    #[allow(dead_code)]
+    pub force_host: Option<bool>, // optional
+    #[allow(dead_code)]
+    pub force_ssl: Option<bool>, // optional
+    #[allow(dead_code)]
+    pub priority: Option<usize>, // optional
+    #[allow(dead_code)]
+    pub paths: HashMap<String, Path>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Path {
-    service: String
+    #[allow(dead_code)]
+    pub service: String
 }
 
 pub fn parse_toml(toml_path: String) -> Config {
