@@ -8,16 +8,26 @@ use crate::parser::Route;
 use crate::parser::Config;
 use regex::Regex;
 
+fn read_http_request(stream: TcpStream) -> (Vec<String>, TcpStream) {
+    let mut new_stream = stream.try_clone().unwrap();
+    let buf_reader = BufReader::new(&mut new_stream);
+    // let http_request: Vec<_> = buf_reader.lines().map(|result| result.unwrap()).take_while(|line| !line.is_empty()).collect();
+    let mut http_request: Vec<String> = Vec::new();
+    for line in buf_reader.lines().take_while(|line| !line.as_ref().unwrap_or(&"".to_string()).is_empty()) {
+        match line {
+            Ok(l) => http_request.push(l),
+            Err(_) => println!("Error reading line!"),
+        }
+    }
+
+    return (http_request, new_stream);
+}
 
 fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (String, HashMap<String, String>, TcpStream) {
     // Stream & Request
-    let mut new_stream = stream.try_clone().unwrap();
-    let buf_reader = BufReader::new(&mut new_stream);
-    let http_request: Vec<_> = buf_reader
-    .lines()
-    .map(|result| result.unwrap())
-    .take_while(|line| !line.is_empty())
-    .collect();
+    let (http_request, new_stream) = read_http_request(stream);
+    
+    if http_request.len() == 0 { return ("400".to_string(), HashMap::<String,String>::new(), new_stream); } // Empty or wrong request! (also solves non handled https requests crashing the server)
     
     // Service Data
     let mut data: HashMap<String,String> = HashMap::<String,String>::new();
@@ -176,6 +186,4 @@ pub fn start(config: Config) {
             let _ = listen(port.clone(), config_copy);
         });
     }
-
-    std::thread::park();
 }

@@ -7,7 +7,6 @@ pub struct Config {
     #[allow(dead_code)]
     pub http: Http,
 }
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct Http {
     #[allow(dead_code)]
@@ -15,7 +14,6 @@ pub struct Http {
     #[allow(dead_code)]
     pub services: HashMap<String, Service>
 }
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct Service {
     #[allow(dead_code)]
@@ -23,7 +21,6 @@ pub struct Service {
     #[allow(dead_code)]
     pub action: String
 }
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct Route {
     #[allow(dead_code)]
@@ -39,16 +36,15 @@ pub struct Route {
     #[allow(dead_code)]
     pub paths: HashMap<String, Path>
 }
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct Path {
     #[allow(dead_code)]
     pub service: String
 }
 
-pub fn parse_toml(toml_path: String) -> Config {
-    let toml_str = fs::read_to_string(toml_path).expect("Failed to read config.toml file");
-    let parsed_toml: Config = toml::from_str(&toml_str).expect("Failed to deserialize config.toml");
+pub fn parse_config(toml_path: String) -> Config {
+    let toml_str = fs::read_to_string(&toml_path).expect(&format!("Failed to read {:?} file", &toml_path));
+    let parsed_toml: Config = toml::from_str(&toml_str).expect(&format!("Failed to deserialize {:?}", &toml_path));
 
     return parsed_toml;
 }
