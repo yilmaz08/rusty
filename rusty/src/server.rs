@@ -43,14 +43,23 @@ pub fn respond(service_name: String, service_data: HashMap<String, String>, data
         let module_name = config.http.services.get(&service_name).unwrap().module.clone();
         let config_parameters = config.http.services.get(&service_name).unwrap().parameters.clone();
 
-        let (new_status_code, new_headers, new_content) = match mods.get(&module_name) {
-            Some(library) => modules::execute_module(library, config_parameters, service_data),
+        let (new_status_code, new_headers, new_content, new_service) = match mods.get(&module_name) {
+            Some(library) => modules::execute_module(library, config_parameters, service_data.clone()),
             None => Default::default()
         };
+
+        if new_service != "" {
+            if new_service == service_name { return "".to_string().into_bytes(); } // Prevent infinite loops
+            return respond(new_service, service_data.clone(), data, config, mods);
+        }
         
         content = new_content;
         for (key, value) in new_headers { headers.insert(key, value); }
         status_code = new_status_code;
+        if !data.status_codes.contains_key(&status_code) {
+            if "500" == service_name { return "".to_string().into_bytes(); } // Prevent infinite loops
+            return respond("500".to_string(), service_data.clone(), data, config, mods);
+        }
         status_text = data.status_codes[&status_code].clone();
     }
 
