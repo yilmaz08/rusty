@@ -14,7 +14,9 @@ pub struct Http {
     #[allow(dead_code)]
     pub routes: HashMap<String, Route>,
     #[allow(dead_code)]
-    pub services: HashMap<String, Service>
+    pub services: HashMap<String, Service>,
+    #[allow(dead_code)]
+    pub max_body_size: usize
 }
 #[derive(Debug, Deserialize, Clone)]
 pub struct Service {
@@ -30,19 +32,15 @@ pub struct Route {
     #[allow(dead_code)]
     pub hosts: Vec<String>,
     #[allow(dead_code)]
-    pub force_host: Option<bool>, // optional
-    #[allow(dead_code)]
-    pub force_ssl: Option<bool>, // optional
-    #[allow(dead_code)]
     pub priority: Option<usize>, // optional
     #[allow(dead_code)]
-    pub paths: HashMap<String, Path>
+    pub paths: HashMap<String, String> // Path - Service relation
 }
-#[derive(Debug, Deserialize, Clone)]
-pub struct Path {
-    #[allow(dead_code)]
-    pub service: String
-}
+// #[derive(Debug, Deserialize, Clone)]
+// pub struct Path {
+//     #[allow(dead_code)]
+//     pub service: String
+// }
 
 pub fn parse_config(yaml_path: String) -> Config {
     let yaml_str = fs::read_to_string(&yaml_path).expect(&format!("Failed to read {:?} file", &yaml_path));

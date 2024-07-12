@@ -22,7 +22,7 @@ pub fn load_modules(modules: HashMap<String, String>) -> HashMap<String, Arc<Lib
 
     for (module_name, module_path) in modules {
         match load_module(&module_path) {
-            Ok(lib) => { new_modules.insert(module_name, lib.into()); }
+            Ok(lib) => { new_modules.insert(module_name.clone(), lib.into()); println!("Module {module_name} successfully loaded from {module_path}!") }
             Err(e) => println!("Failed to load library: {}", e),
         }
     }

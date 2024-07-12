@@ -2,20 +2,27 @@ modules:
   web-server: ../modules/web-server/target/release/libweb_server.so
   # reverse-proxy: ../modules/reverse-proxy/target/release/libreverse_proxy.so
 http:
+  max_body_size: 50000000 # doesn't support letters yet. enter as bytes
+
   routes:
-    rickroll:
+    mirror:
+      priority: 5
       ports:
         - "65080"
       hosts:
-        - ayilmaz.xyz
         - localhost
-        - "127.0.0.1"
+        - 127.0.0.1
       paths:
-        ^/:
-          service: rickroll
+        ^/: index
+        ^/.+: fileserver
+
   services:
-    rickroll:
+    index:
       module: web-server
       parameters:
-        return: 301
-        location: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        location: https://ayilmaz.xyz
+    fileserver:
+      module: web-server
+      parameters:
+        root: "/srv/mirror/"
+        file: $request_uri_trimmed$

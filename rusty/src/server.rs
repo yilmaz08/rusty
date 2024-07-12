@@ -30,7 +30,6 @@ pub fn respond(service_name: String, service_data: HashMap<String, String>, data
     
     headers.insert("Server".to_string(), "rusty".to_string());
     headers.insert("Date".to_string(), chrono::Utc::now().to_rfc2822().to_string());
-    headers.insert("Content-Type".to_string(), "text/html".to_string());
 
     if !config.http.services.contains_key(&service_name) { // Service not defined (might be status code)
         if data.status_codes.contains_key(&service_name) {

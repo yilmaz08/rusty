@@ -40,20 +40,16 @@ fn start(config_path: String, data_path: String) {
     let config = parser::parse_config(config_path.to_string());
     println!("Config is loaded from file: {}", config_path);
 
-    // Load modules
     let config_modules = config.modules.clone();
 
     println!("Loading modules...");
-    println!("{:#?}", config_modules);
 
-    let mods = modules::load_modules(config_modules);
-
-    println!("Modules loaded successfully");
+    let modules = modules::load_modules(config_modules);
 
     // println!("{:#?}", config);
     // println!("{:#?}", data);
     // println!("{:#?}", mods);
 
-    router::start(config, data, mods);
+    router::start(config, data, modules);
     std::thread::park();
 }

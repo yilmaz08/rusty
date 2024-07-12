@@ -5,40 +5,52 @@ use crate::server;
 
 use std::{
     thread,
-    io::{prelude::*, BufReader},
+    str,
+    io::{prelude::*},
     net::{TcpListener, TcpStream},
     collections::HashMap,
-    time::Duration,
+    collections::HashSet,
 };
 use regex::Regex;
 use libloading::Library;
 use std::sync::Arc;
 
 
-fn read_http_request(stream: TcpStream) -> (Vec<String>, TcpStream) {
-    let mut new_stream = stream.try_clone().unwrap();
-    let buf_reader = BufReader::new(&mut new_stream);
-    // let http_request: Vec<_> = buf_reader.lines().map(|result| result.unwrap()).take_while(|line| !line.is_empty()).collect();
-    let mut http_request: Vec<String> = Vec::new();
-    for line in buf_reader.lines().take_while(|line| !line.as_ref().unwrap_or(&"".to_string()).is_empty()) {
-        match line {
-            Ok(l) => http_request.push(l),
-            Err(_) => println!("Error reading line!"),
-        }
-    }
+// Return -> stream, request_data, peer_ip
+fn read_http_request(mut stream: TcpStream, mut max_body_size: i32) -> (TcpStream, String, Vec<String>) {
+    let peer_ip = stream.peer_addr().unwrap().ip();
+    let mut request_str: String = String::new();
 
-    return (http_request, new_stream);
+    loop {
+        let mut buf = [0; 512];
+        let n = stream.read(&mut buf[..]).unwrap();
+        
+        max_body_size -= n as i32;
+        if 0 > max_body_size { return (stream, peer_ip.to_string(), Vec::<String>::new()); }
+        
+        request_str.push_str(&std::str::from_utf8(&buf[..n]).unwrap().to_string());
+
+        if buf.contains(&0) { break; } // end
+    }
+    let request = request_str.split("\r\n").map(|x| x.to_string()).collect::<Vec<String>>();
+
+    println!("{:#?}", request);
+    
+    return (stream, peer_ip.to_string(), request); // Debugging - Stop here
 }
 
-fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (String, HashMap<String, String>, TcpStream) {
+// Return -> service, service_data, stream
+fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>, max_body_size: i32) -> (String, HashMap<String, String>, TcpStream) {
+    // Service Data
+    let mut service_data: HashMap<String,String> = HashMap::<String,String>::new();
+
     // Stream & Request
-    let (http_request, new_stream) = read_http_request(stream);
+    let (new_stream, peer_ip, http_request) = read_http_request(stream, max_body_size); // 50MB max body size
+    
+    service_data.insert("peer_ip".to_string(), peer_ip);
 
     if http_request.len() == 0 { return ("400".to_string(), HashMap::<String,String>::new(), new_stream); } // Empty or wrong request! (also solves non handled https requests crashing the server)
     
-    // Service Data
-    let mut data: HashMap<String,String> = HashMap::<String,String>::new();
-
     // Parse Request - Method, Path, Protocol, Headers
     let request_line = http_request[0].clone();
     let request_array = request_line.split_whitespace().collect::<Vec<&str>>();
@@ -47,25 +59,35 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     let request_path = request_array[1];
     let request_protocol = request_array[2];
 
-    data.insert("request_method".to_string(), request_method.to_string());
-    data.insert("request_protocol".to_string(), request_protocol.to_string());
-    data.insert("request_uri".to_string(), request_path.to_string());
+    service_data.insert("request_method".to_string(), request_method.to_string());
+    service_data.insert("request_uri".to_string(), request_path.to_string());
+    service_data.insert("request_protocol".to_string(), request_protocol.to_string());
 
     let mut request_headers: HashMap<String,String> = HashMap::<String,String>::new();
+    let mut request_body: Vec<String> = Vec::<String>::new();
+
+    let mut on_body = false;
+
     for line in http_request {
-        let split_line: Vec<&str> = line.split(": ").collect();
-        if split_line.len() < 2 { continue; } // Skip lines that don't have a colon
-        request_headers.insert(split_line[0].to_string(), split_line[1].to_string());
+        if !on_body {
+            if line == "" { on_body = true; }
+            
+            let split_line: Vec<&str> = line.split(": ").collect();
+            if split_line.len() < 2 { continue; }
+            request_headers.insert(split_line[0].to_string(), split_line[1].to_string());
+        }
+        else { request_body.push(line); }
     }
 
     println!("--- Request ---");
-    println!("Method: {request_method}");
-    println!("Path: {request_path}");
-    println!("Protocol: {request_protocol}");
+    println!("Method: {}", request_method);
+    println!("Path: {}", request_path);
+    println!("Protocol: {}", request_protocol);
     println!("Headers: {request_headers:#?}");
+    println!("Body: {request_body:#?}");
     println!("--- Debug ---");
 
-    if !request_headers.contains_key("Host") { return ("400".to_string(), data, new_stream); } // Host header is missing!
+    if !request_headers.contains_key("Host") { return ("400".to_string(), service_data, new_stream); } // Host header is missing!
     
     // Host & Port
     let split_host = request_headers.get("Host").unwrap().split(":").collect::<Vec<&str>>();
@@ -124,24 +146,24 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     
     let re = Regex::new(&location_chosen).unwrap();
     let request_uri_regex = re.replace(request_path, "").to_string();
-    data.insert("request_uri_non_regex".to_string(), request_uri_regex.to_string());
-    data.insert("request_uri_regex".to_string(), request_path.replace(&request_uri_regex, "").to_string());
+    service_data.insert("request_uri_non_regex".to_string(), request_uri_regex.to_string());
+    service_data.insert("request_uri_regex".to_string(), request_path.replace(&request_uri_regex, "").to_string());
+    service_data.insert("request_uri_trimmed".to_string(), request_path.trim_start_matches('/').trim_end_matches('/').to_string());
     
-    if size == -1 { return ("404".to_string(), data, new_stream); } // Router & Location is not found!
+    if size == -1 { return ("404".to_string(), service_data, new_stream); } // Router & Location is not found!
 
     return (
-        routers.get(&route_chosen).unwrap().paths.get(&location_chosen).unwrap().service.clone(),
-        data,
+        routers.get(&route_chosen).unwrap().paths.get(&location_chosen).unwrap().to_string(),
+        service_data,
         new_stream
     );
 }
 
 fn handle_request(stream: TcpStream, config: Config, data: Data, modules: HashMap<String, Arc<Library>>) {
-    let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
+    let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone(), config.http.max_body_size.try_into().unwrap());
     println!("Service: {service}");
     println!("Data: {service_data:#?}");
-    let response = server::respond(service, service_data, data.clone(), config.clone(), modules.clone());
-    new_stream.write_all(&response).unwrap();
+    new_stream.write_all(&server::respond(service, service_data, data, config, modules)).unwrap();
 }
 
 fn listen(port: String, config: Config, data: Data, modules: HashMap<String, Arc<Library>>) -> std::io::Result<()> {
@@ -169,15 +191,10 @@ fn listen(port: String, config: Config, data: Data, modules: HashMap<String, Arc
 }
 
 pub fn start(config: Config, data: Data, modules: HashMap<String, Arc<Library>>) {
-    let mut ports = Vec::<String>::new();
-
+    let mut ports = HashSet::<String>::new();
+    
     for route in config.http.routes.keys() {
-        for port in config.http.routes.get(route).unwrap().ports.clone() {
-            if !ports.contains(&port) {
-                println!("Found port {port} in the config");
-                ports.push(port);
-            }
-        }
+        ports.extend(config.http.routes.get(route).unwrap().ports.clone());
     }
 
     for port in ports {
