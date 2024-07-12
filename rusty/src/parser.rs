@@ -6,6 +6,8 @@ use std::collections::HashMap;
 pub struct Config {
     #[allow(dead_code)]
     pub http: Http,
+    #[allow(dead_code)]
+    pub modules: HashMap<String, String>
 }
 #[derive(Debug, Deserialize, Clone)]
 pub struct Http {
@@ -42,11 +44,11 @@ pub struct Path {
     pub service: String
 }
 
-pub fn parse_config(toml_path: String) -> Config {
-    let toml_str = fs::read_to_string(&toml_path).expect(&format!("Failed to read {:?} file", &toml_path));
-    let parsed_toml: Config = toml::from_str(&toml_str).expect(&format!("Failed to deserialize {:?}", &toml_path));
+pub fn parse_config(yaml_path: String) -> Config {
+    let yaml_str = fs::read_to_string(&yaml_path).expect(&format!("Failed to read {:?} file", &yaml_path));
+    let parsed_yaml: Config = serde_yml::from_str(&yaml_str).expect(&format!("Failed to deserialize {:?}", &yaml_path));
 
-    return parsed_toml;
+    return parsed_yaml;
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -55,9 +57,9 @@ pub struct Data {
     pub status_codes: HashMap<String, String>,
 }
 
-pub fn parse_data(toml_path: String) -> Data {
-    let toml_str = fs::read_to_string(&toml_path).expect(&format!("Failed to read {:?} file", &toml_path));
-    let parsed_toml: Data = toml::from_str(&toml_str).expect(&format!("Failed to deserialize {:?}", &toml_path));
+pub fn parse_data(json_path: String) -> Data {
+    let json_str = fs::read_to_string(&json_path).expect(&format!("Failed to read {:?} file", &json_path));
+    let parsed_json: Data = serde_json::from_str(&json_str).expect(&format!("Failed to deserialize {:?}", &json_path));
 
-    return parsed_toml;
+    return parsed_json;
 }

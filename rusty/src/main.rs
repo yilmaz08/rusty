@@ -1,6 +1,7 @@
 mod parser;
 mod router;
 mod server;
+mod modules;
 
 use clap::Parser;
 
@@ -9,11 +10,9 @@ use clap::Parser;
 struct Args {
     #[arg(help = "Action to perform: start or test")]
     action: String,
-
-    #[arg(short, long, default_value = "../config/rusty.toml")]
+    #[arg(short, long, default_value = "../config/rusty.yml")]
     config: String,
-
-    #[arg(short, long, default_value = "../config/data.toml")]
+    #[arg(short, long, default_value = "../config/data.json")]
     data: String,
 }
 
@@ -35,13 +34,26 @@ fn test(config_path: String, data_path: String) {
 }
 
 fn start(config_path: String, data_path: String) {
-    let config = parser::parse_config(config_path.to_string());
-    println!("Config is loaded from file: {}", config_path);
-
     let data = parser::parse_data(data_path.to_string());
     println!("Data is loaded from file: {}", data_path.to_string());
 
+    let config = parser::parse_config(config_path.to_string());
+    println!("Config is loaded from file: {}", config_path);
+
+    // Load modules
+    let config_modules = config.modules.clone();
+
+    println!("Loading modules...");
+    println!("{:#?}", config_modules);
+
+    let mods = modules::load_modules(config_modules);
+
+    println!("Modules loaded successfully");
+
     // println!("{:#?}", config);
-    router::start(config, data);
+    // println!("{:#?}", data);
+    // println!("{:#?}", mods);
+
+    router::start(config, data, mods);
     std::thread::park();
 }

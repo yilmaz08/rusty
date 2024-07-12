@@ -1,0 +1,28 @@
+modules:
+  web-server: ../modules/libweb_server.so
+  # reverse-proxy: ../modules/libreverse_proxy.so
+http:
+  routes:
+    main:
+      ports:
+        - "65080"
+      hosts:
+        - 127.0.0.1
+        - localhost
+        - ayilmaz.xyz
+      paths:
+        ^/:
+          service: index
+  services:
+    index:
+      module: web-server
+      parameters:
+        index: /srv/www/index.html
+    # reverse:
+    #   module: reverse-proxy
+    #   parameters:
+    #     upstreams:
+    #       - server: http://127.0.0.1:8000/$request_uri
+    #         weight: 1
+    #       - server: http://127.0.0.1:8001/$request_uri
+    #         weight: 3

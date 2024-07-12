@@ -3,6 +3,9 @@ use crate::parser::Config;
 use crate::parser::Data;
 use crate::server;
 
+use libloading::Library;
+use std::sync::Arc;
+
 use std::{
     thread,
     io::{prelude::*, BufReader},
@@ -75,29 +78,22 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     let route_keys: Vec<_> = routers.keys().cloned().collect();
     println!("Route keys: {route_keys:#?}");
 
-    let mut ports_matching: Vec<String> = Vec::<String>::new();
-    let mut hosts_matching: Vec<String> = Vec::<String>::new();
+    let mut matching: Vec<String> = Vec::<String>::new(); // Host abd port matching
 
-    // Match by port here
+    // Match by port and hosts here
     for key in route_keys {
-        if routers.get(&key).unwrap().ports.contains(&port.to_string()) {
-            ports_matching.push(key);
+        if routers.get(&key).unwrap().ports.contains(&port.to_string()) && routers.get(&key).unwrap().hosts.contains(&host.to_string()) {
+            matching.push(key);
         }
     }
-    println!("Ports matching: {ports_matching:#?}");
-    // Match by host here
-    for key in &ports_matching {
-        if routers.get(key).unwrap().hosts.contains(&host.to_string()) {
-            hosts_matching.push(key.to_string());
-        }
-    }
-    println!("Hosts matching: {hosts_matching:#?}");
+    println!("Matching: {matching:#?}");
     
     let mut route_chosen: String = "".to_string();
     let mut location_chosen: String = "".to_string();
     let mut size: i128 = -1;
 
-    for router in hosts_matching {
+    // Needs fixing: TODO
+    for router in matching {
         let paths = routers.get(&router).unwrap().paths.keys().cloned().collect::<Vec<String>>();
         println!("Paths: {:#?}", paths);
 
@@ -124,6 +120,7 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
             }
         }
     }
+    //
 
     
     let re = Regex::new(&location_chosen).unwrap();
@@ -140,7 +137,7 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     );
 }
 
-fn listen(port: String, config: Config, data: Data) -> std::io::Result<()> {
+fn listen(port: String, config: Config, data: Data, modules: HashMap<String, Arc<Library>>) -> std::io::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}"))?;
     println!("Listening on port {port}");
     for stream in listener.incoming() {
@@ -149,7 +146,7 @@ fn listen(port: String, config: Config, data: Data) -> std::io::Result<()> {
                 let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
                 println!("Service: {service} - Port: {port}");
                 println!("Data: {service_data:#?}");
-                let response = server::respond(service, service_data, data.clone(), config.clone());
+                let response = server::respond(service, service_data, data.clone(), config.clone(), modules.clone());
                 new_stream.write_all(&response).unwrap();
             }
             Err(e) => { eprintln!("Failed: {e}"); }
@@ -158,7 +155,7 @@ fn listen(port: String, config: Config, data: Data) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn start(config: Config, data: Data) {
+pub fn start(config: Config, data: Data, modules: HashMap<String, Arc<Library>>) {
     let mut ports = Vec::<String>::new();
 
     for route in config.http.routes.keys() {
@@ -171,10 +168,9 @@ pub fn start(config: Config, data: Data) {
     }
 
     for port in ports {
-        let config_copy = config.clone();
-        let data_copy = data.clone();
+        let (config_copy, data_copy, modules_copy) = (config.clone(), data.clone(), modules.clone());
         thread::spawn(move || {
-            let _ = listen(port.clone(), config_copy, data_copy);
+            let _ = listen(port.clone(), config_copy, data_copy, modules_copy);
         });
     }
 }
