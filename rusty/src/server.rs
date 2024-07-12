@@ -36,6 +36,10 @@ pub fn respond(service_name: String, service_data: HashMap<String, String>, data
         if data.status_codes.contains_key(&service_name) {
             status_code = service_name;
             status_text = data.status_codes[&status_code].clone();
+        } else if service_name == "sleep" { // Sleep for 5 seconds - Debugging
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            status_code = "200".to_string();
+            status_text = data.status_codes[&status_code].clone();
         }
         content = plain_status_code(status_code.clone(), status_text.clone());
     }

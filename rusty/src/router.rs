@@ -3,16 +3,17 @@ use crate::parser::Config;
 use crate::parser::Data;
 use crate::server;
 
-use libloading::Library;
-use std::sync::Arc;
-
 use std::{
     thread,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     collections::HashMap,
+    time::Duration,
 };
 use regex::Regex;
+use libloading::Library;
+use std::sync::Arc;
+
 
 fn read_http_request(stream: TcpStream) -> (Vec<String>, TcpStream) {
     let mut new_stream = stream.try_clone().unwrap();
@@ -32,7 +33,7 @@ fn read_http_request(stream: TcpStream) -> (Vec<String>, TcpStream) {
 fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (String, HashMap<String, String>, TcpStream) {
     // Stream & Request
     let (http_request, new_stream) = read_http_request(stream);
-    
+
     if http_request.len() == 0 { return ("400".to_string(), HashMap::<String,String>::new(), new_stream); } // Empty or wrong request! (also solves non handled https requests crashing the server)
     
     // Service Data
@@ -120,8 +121,6 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
             }
         }
     }
-    //
-
     
     let re = Regex::new(&location_chosen).unwrap();
     let request_uri_regex = re.replace(request_path, "").to_string();
@@ -137,17 +136,31 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     );
 }
 
+fn handle_request(stream: TcpStream, config: Config, data: Data, modules: HashMap<String, Arc<Library>>) {
+    let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
+    println!("Service: {service}");
+    println!("Data: {service_data:#?}");
+    let response = server::respond(service, service_data, data.clone(), config.clone(), modules.clone());
+    new_stream.write_all(&response).unwrap();
+}
+
 fn listen(port: String, config: Config, data: Data, modules: HashMap<String, Arc<Library>>) -> std::io::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}"))?;
     println!("Listening on port {port}");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
-                println!("Service: {service} - Port: {port}");
-                println!("Data: {service_data:#?}");
-                let response = server::respond(service, service_data, data.clone(), config.clone(), modules.clone());
-                new_stream.write_all(&response).unwrap();
+                let config_clone = config.clone();
+                let data_clone = data.clone();
+                let modules_clone = modules.clone();
+
+                // Single-Thread
+                // handle_request(stream, config_clone, data_clone, modules_clone);
+                
+                // Multi-Thread
+                thread::spawn(move || {
+                    handle_request(stream, config_clone, data_clone, modules_clone);
+                });
             }
             Err(e) => { eprintln!("Failed: {e}"); }
         }

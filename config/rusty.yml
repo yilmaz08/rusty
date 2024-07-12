@@ -12,9 +12,16 @@ http:
       paths:
         ^/:
           service: index
-        ^/.+:
-          service: files
-
+        ^/sleep:
+          service: sleep
+    public:
+      ports:
+        - "65080"
+      hosts:
+        - ayilmaz.xyz
+      paths:
+        ^/:
+          service: public-index
   services:
     index:
       module: web-server
@@ -26,3 +33,9 @@ http:
       parameters:
         file: $request_uri$
         root: /home/yilmaz/Other/GitHub/rusty/html/
+    public-index:
+      module: web-server
+      parameters:
+        file: index.html
+        root: /home/yilmaz/Other/GitHub/rusty/html
+
