@@ -2,10 +2,10 @@ use libloading::{Library, Symbol};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub fn execute_module(lib: &Library, config: HashMap<String, String>, data: HashMap<String, String>) -> (String, HashMap<String, String>, String, String) {
+pub fn execute_module(lib: &Library, config: HashMap<String, String>, data: HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String) {
     unsafe{
         // Answer -> (String, HashMap<String, String>, String) -> StatusCode, Headers, Body
-        let func: Symbol<unsafe extern "C" fn(HashMap<String, String>, HashMap<String, String>) -> (String, HashMap<String, String>, String, String)> = lib.get(b"execute").expect("Failed to load function");
+        let func: Symbol<unsafe extern "C" fn(HashMap<String, String>, HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String)> = lib.get(b"execute").expect("Failed to load function");
         return func(data, config);
     }
 }

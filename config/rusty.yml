@@ -3,39 +3,19 @@ modules:
   # reverse-proxy: ../modules/reverse-proxy/target/release/libreverse_proxy.so
 http:
   routes:
-    main:
-      ports:
-        - "65080"
-      hosts:
-        - 127.0.0.1
-        - localhost
-      paths:
-        ^/:
-          service: index
-        ^/sleep:
-          service: sleep
-    public:
+    rickroll:
       ports:
         - "65080"
       hosts:
         - ayilmaz.xyz
+        - localhost
+        - "127.0.0.1"
       paths:
         ^/:
-          service: public-index
+          service: rickroll
   services:
-    index:
+    rickroll:
       module: web-server
       parameters:
-        file: index.html
-        root: /home/yilmaz/Other/GitHub/rusty/html/
-    files:
-      module: web-server
-      parameters:
-        file: $request_uri$
-        root: /home/yilmaz/Other/GitHub/rusty/html/
-    public-index:
-      module: web-server
-      parameters:
-        file: index.html
-        root: /home/yilmaz/Other/GitHub/rusty/html
-
+        return: 301
+        location: https://www.youtube.com/watch?v=dQw4w9WgXcQ

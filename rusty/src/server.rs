@@ -8,7 +8,7 @@ use std::fs::File;
 use libloading::Library;
 use std::sync::Arc;
 
-pub fn plain_status_code(status_code: String, status_text: String) -> String {
+pub fn plain_status_code(status_code: String, status_text: String) -> Vec<u8> {
     let mut file = File::open("../html/status_code.html").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
@@ -16,13 +16,13 @@ pub fn plain_status_code(status_code: String, status_text: String) -> String {
     contents = contents.replace("$status_code$", &status_code);
     contents = contents.replace("$status_text$", &status_text);
 
-    return contents;
+    return contents.into_bytes();
 }
 
 pub fn respond(service_name: String, service_data: HashMap<String, String>, data: Data, config: Config, mods: HashMap<String, Arc<Library>>) -> Vec<u8> {
-    if !service_data.contains_key("request_protocol") { return "".to_string().into_bytes(); } // Possibly unsupported request type
+    if !service_data.contains_key("request_protocol") { return Vec::<u8>::new(); } // Possibly unsupported request type
 
-    let content;
+    let content: Vec<u8>;
     let protocol = service_data["request_protocol"].clone();
     let mut headers = HashMap::<String,String>::new();
     let mut status_code = "404".to_string(); // Default status code
@@ -67,12 +67,13 @@ pub fn respond(service_name: String, service_data: HashMap<String, String>, data
         status_text = data.status_codes[&status_code].clone();
     }
 
-    headers.insert("Content-Length".to_string(), content.len().to_string());
     // Build Response - Data is ready
     let mut response = format!("{protocol} {status_code} {status_text}\r\n").to_string();   // Add Status Line
     for (key, value) in headers { response.push_str(&format!("{key}: {value}\r\n")); }      // Add Headers
-    response.push_str(&format!("\r\n{content}").to_string());                               // Add Content
+    response.push_str("\r\n");
 
-    println!("--- Response ---\n{response}"); // For debugging
-    return response.into_bytes();
+    let mut response_byte = response.into_bytes();
+    response_byte.extend_from_slice(&content);
+    
+    return response_byte;
 }
