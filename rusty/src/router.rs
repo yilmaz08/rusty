@@ -1,11 +1,14 @@
+use crate::parser::Route;
+use crate::parser::Config;
+use crate::parser::Data;
+use crate::server;
+
 use std::{
     thread,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     collections::HashMap,
 };
-use crate::parser::Route;
-use crate::parser::Config;
 use regex::Regex;
 
 fn read_http_request(stream: TcpStream) -> (Vec<String>, TcpStream) {
@@ -40,6 +43,8 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     let request_path = request_array[1];
     let request_protocol = request_array[2];
 
+    data.insert("request_method".to_string(), request_method.to_string());
+    data.insert("request_protocol".to_string(), request_protocol.to_string());
     data.insert("request_uri".to_string(), request_path.to_string());
 
     let mut request_headers: HashMap<String,String> = HashMap::<String,String>::new();
@@ -135,31 +140,16 @@ fn incoming_request(stream: TcpStream, routers: HashMap<String, Route>) -> (Stri
     );
 }
 
-fn respond(service: String) -> Vec<u8> { // TEMPORARY RESPONSE TO TEST ROUTER
-    println!("--- Response ---");
-    let mut s = "HTTP/1.1 404 Not Found\r\n\r\n".to_string();
-    if service == "200" {
-        s = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    } else if service == "400" {
-        s = "HTTP/1.1 400 Bad Request\r\n\r\n".to_string();
-    } else if service == "301" {
-        s = "HTTP/1.1 301 Moved Permanently\r\n\r\n".to_string();
-    }
-    s += format!("Service: {:?}", &service).as_str();
-    println!("{s}");
-    return s.into_bytes();
-}
-
-fn listen(port: String, config: Config) -> std::io::Result<()> {
+fn listen(port: String, config: Config, data: Data) -> std::io::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}"))?;
     println!("Listening on port {port}");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                let (service, data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
+                let (service, service_data, mut new_stream) = incoming_request(stream, config.http.routes.clone());
                 println!("Service: {service} - Port: {port}");
-                println!("Data: {data:#?}");
-                let response = respond(service);
+                println!("Data: {service_data:#?}");
+                let response = server::respond(service, service_data, data.clone(), config.clone());
                 new_stream.write_all(&response).unwrap();
             }
             Err(e) => { eprintln!("Failed: {e}"); }
@@ -168,7 +158,7 @@ fn listen(port: String, config: Config) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn start(config: Config) {
+pub fn start(config: Config, data: Data) {
     let mut ports = Vec::<String>::new();
 
     for route in config.http.routes.keys() {
@@ -182,8 +172,9 @@ pub fn start(config: Config) {
 
     for port in ports {
         let config_copy = config.clone();
+        let data_copy = data.clone();
         thread::spawn(move || {
-            let _ = listen(port.clone(), config_copy);
+            let _ = listen(port.clone(), config_copy, data_copy);
         });
     }
 }
