@@ -1,11 +1,11 @@
 modules:
   web-server: ../modules/web-server/target/release/libweb_server.so
-  # reverse-proxy: ../modules/reverse-proxy/target/release/libreverse_proxy.so
+  reverse-proxy: ../modules/reverse-proxy/target/release/libreverse_proxy.so
 http:
   max_body_size: 50000000 # doesn't support letters yet. enter as bytes
 
   routes:
-    mirror:
+    server:
       priority: 5
       ports:
         - "65080"
@@ -13,16 +13,19 @@ http:
         - localhost
         - 127.0.0.1
       paths:
-        ^/: index
-        ^/.+: fileserver
+        ^/: reverse
 
   services:
+    reverse:
+      module: reverse-proxy
+      parameters:
+        upstreams:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
     index:
       module: web-server
       parameters:
-        location: https://ayilmaz.xyz
-    fileserver:
-      module: web-server
-      parameters:
-        root: "/srv/mirror/"
-        file: $request_uri_trimmed$
+        file: index.html
+        root: /home/yilmaz/Other/GitHub/rusty/html/

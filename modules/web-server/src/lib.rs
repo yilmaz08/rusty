@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::fs::File;
 use std::fs;
+use serde_json::Value;
 
 #[no_mangle] // Answer -> Status Code, Additional Headers, buffer, Redirected Service
-pub extern "C" fn execute(data: HashMap<String, String>, config: HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String) {
+pub extern "C" fn execute(data: HashMap<String, String>, config: HashMap<String, Value>) -> (String, HashMap<String, String>, Vec<u8>, String) {
     let mut buffer = Vec::<u8>::new();
     let mut headers = HashMap::new();
     headers.insert("Rusty-Module".to_string(), "web-server".to_string());
@@ -12,12 +13,14 @@ pub extern "C" fn execute(data: HashMap<String, String>, config: HashMap<String,
     let mut status_code: String = "404".to_string();
     let mut redirected_service: String = "404".to_string();
 
+    println!("Parameters: {:#?}", config);
+
     // Location Header
     if config.contains_key("location") {
         status_code = "301".to_string();
         redirected_service = "".to_string();
 
-        let mut new_location = config.get("location").unwrap().to_string();
+        let mut new_location = config.get("location").unwrap().as_str().unwrap().to_string();
         for key in data.keys() {
             let replacement = data.get(key).unwrap();
             let _key = &format!("${}$", key);
@@ -28,8 +31,8 @@ pub extern "C" fn execute(data: HashMap<String, String>, config: HashMap<String,
     // Return file
     if config.contains_key("file") && config.contains_key("root") {
         // Relative paths
-        let mut rel_file_path = config.get("file").unwrap().to_string();
-        let mut rel_root_path = config.get("root").unwrap().to_string();
+        let mut rel_file_path = config.get("file").unwrap().as_str().unwrap().to_string();
+        let mut rel_root_path = config.get("root").unwrap().as_str().unwrap().to_string();
         
         // Replace variables in paths
         for key in data.keys() {
@@ -80,12 +83,12 @@ pub extern "C" fn execute(data: HashMap<String, String>, config: HashMap<String,
         redirected_service = "".to_string();
         status_code = "200".to_string();
         // Return
-        // return ("200".to_string(), headers, buffer, "".to_string());
+        // return ("200".as_str(), headers, buffer, "".as_str());
     }
     
     if config.contains_key("return") {
-        // return (config.get("return").unwrap().to_string(), headers, buffer, "".to_string());
-        status_code = config.get("return").unwrap().to_string();
+        // return (config.get("return").unwrap().as_str(), headers, buffer, "".as_str());
+        status_code = config.get("return").unwrap().as_str().unwrap().to_string();
         redirected_service = "".to_string();
     }
     // Return 404

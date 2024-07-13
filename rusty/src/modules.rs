@@ -1,11 +1,12 @@
 use libloading::{Library, Symbol};
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde_json::Value;
 
-pub fn execute_module(lib: &Library, config: HashMap<String, String>, data: HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String) {
+pub fn execute_module(lib: &Library, config: HashMap<String, Value>, data: HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String) {
     unsafe{
         // Answer -> (String, HashMap<String, String>, String) -> StatusCode, Headers, Body
-        let func: Symbol<unsafe extern "C" fn(HashMap<String, String>, HashMap<String, String>) -> (String, HashMap<String, String>, Vec<u8>, String)> = lib.get(b"execute").expect("Failed to load function");
+        let func: Symbol<unsafe extern "C" fn(HashMap<String, String>, HashMap<String, Value>) -> (String, HashMap<String, String>, Vec<u8>, String)> = lib.get(b"execute").expect("Failed to load function");
         return func(data, config);
     }
 }

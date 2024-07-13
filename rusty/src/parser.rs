@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::fs;
 use std::collections::HashMap;
+use serde_json::Value;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
@@ -23,7 +24,7 @@ pub struct Service {
     #[allow(dead_code)]
     pub module: String,
     #[allow(dead_code)]
-    pub parameters: HashMap<String, String>
+    pub parameters: HashMap<String, Value>
 }
 #[derive(Debug, Deserialize, Clone)]
 pub struct Route {
@@ -36,11 +37,6 @@ pub struct Route {
     #[allow(dead_code)]
     pub paths: HashMap<String, String> // Path - Service relation
 }
-// #[derive(Debug, Deserialize, Clone)]
-// pub struct Path {
-//     #[allow(dead_code)]
-//     pub service: String
-// }
 
 pub fn parse_config(yaml_path: String) -> Config {
     let yaml_str = fs::read_to_string(&yaml_path).expect(&format!("Failed to read {:?} file", &yaml_path));
